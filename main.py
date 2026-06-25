@@ -3,6 +3,8 @@ from typing import Dict, Any
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
+import markdown as md
 
 # =============================
 # Scoring helpers
@@ -48,6 +50,7 @@ def score_pemat(row: pd.Series) -> Dict[str, Any]:
         "pemat_action_items": len(a_vals),
         "pemat_action_score_pct": a_score,
     }
+
 
 # =============================
 # Rating item definitions
@@ -124,13 +127,6 @@ HON_ITEMS = {
     "hon_advertising_policy": "Advertising Policy: Is advertising clearly distinguished from content?",
 }
 
-LIKERT_LABELS = [
-    "Strongly disagree",
-    "Disagree",
-    "Neutral",
-    "Agree",
-    "Strongly agree",
-]
 
 # =============================
 # Streamlit app
@@ -156,7 +152,7 @@ if st.session_state.df is None:
 
 df = st.session_state.df
 
-# Choose columns
+# Choose columns: no separate prompt now
 cols = list(df.columns)
 text_col = st.selectbox(
     "Text column (Complete response)",
@@ -168,17 +164,21 @@ model_col = st.selectbox(
     cols,
     index=cols.index("Model") if "Model" in cols else 0,
 )
-prompt_col = st.selectbox("Prompt column (optional)", ["<none>"] + cols)
 
 n_rows = len(df)
 if "current_idx" not in st.session_state:
     st.session_state.current_idx = 0
 
 # Navigation
-nav_left, nav_right = st.columns(2)
+nav_left, nav_center, nav_right = st.columns([1, 2, 1])
 with nav_left:
     if st.button("⟵ Previous", use_container_width=True, disabled=st.session_state.current_idx <= 0):
         st.session_state.current_idx = max(0, st.session_state.current_idx - 1)
+with nav_center:
+    st.markdown(
+        f"<div style='text-align:center; font-weight:bold;'>Response {st.session_state.current_idx + 1} / {n_rows}</div>",
+        unsafe_allow_html=True,
+    )
 with nav_right:
     if st.button("Next ⟶", use_container_width=True, disabled=st.session_state.current_idx >= n_rows - 1):
         st.session_state.current_idx = min(n_rows - 1, st.session_state.current_idx + 1)
@@ -186,32 +186,41 @@ with nav_right:
 row_idx = st.session_state.current_idx
 row = df.iloc[row_idx]
 
-# Layout: left (scrollable text), right (ratings)
+# Layout: left (scrollable markdown), right (ratings)
 left, right = st.columns([1.7, 1.3])
 
 with left:
-    st.subheader(f"Response {row_idx + 1} / {n_rows}")
+    st.subheader("Response")
     st.markdown(f"**Model:** {row.get(model_col, '')}")
-    if prompt_col != "<none>":
-        st.markdown(f"**Prompt:** {row.get(prompt_col, '')}")
     st.markdown("---")
 
     response_md = str(row.get(text_col, ""))
 
-    # Scrollable text area for long responses
-    st.text_area(
-        "Response text",
-        value=response_md,
-        height=500,          # adjust height as you like
+    # Render markdown into HTML and embed inside a scrollable container
+    html_body = md.markdown(response_md)
+    components.html(
+        f"""
+        <div style="
+            height: 500px;
+            overflow-y: auto;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        ">
+            {html_body}
+        </div>
+        """,
+        height=520,
+        scrolling=False,
     )
 
 with right:
     st.subheader("Ratings")
 
-    # SINGLE form with explicit submit button
     with st.form(key=f"rating_form_{row_idx}"):
 
-        # DISCERN
+        # DISCERN (1–5)
         with st.expander("DISCERN (1–5)", expanded=True):
             for i, text in DISCERN_ITEMS.items():
                 col_name = f"discern_q{i}"
@@ -227,8 +236,8 @@ with right:
                     horizontal=True,
                 )
 
-        # PEMAT – Understandability
-        with st.expander("PEMAT – Understandability (0=Disagree,1=Agree,N/A)", expanded=False):
+        # PEMAT – Understandability (0/1/N/A)
+        with st.expander("PEMAT – Understandability", expanded=False):
             for i, text in PEMAT_UNDER_TEXT.items():
                 col_name = f"pemat_u_q{i}"
                 key = f"{col_name}_{row_idx}"
@@ -246,8 +255,8 @@ with right:
                     horizontal=True,
                 )
 
-        # PEMAT – Actionability
-        with st.expander("PEMAT – Actionability (0=Disagree,1=Agree,N/A)", expanded=False):
+        # PEMAT – Actionability (0/1/N/A)
+        with st.expander("PEMAT – Actionability", expanded=False):
             for i, text in PEMAT_ACT_TEXT.items():
                 col_name = f"pemat_a_q{i}"
                 key = f"{col_name}_{row_idx}"
@@ -265,7 +274,7 @@ with right:
                     horizontal=True,
                 )
 
-        # JAMA
+        # JAMA (0/1)
         with st.expander("JAMA Benchmark (0=No, 1=Yes)", expanded=False):
             for col_name, text in JAMA_ITEMS.items():
                 key = f"{col_name}_{row_idx}"
@@ -280,7 +289,7 @@ with right:
                     horizontal=True,
                 )
 
-        # HON
+        # HON (0/1)
         with st.expander("HONcode principles (0=No, 1=Yes)", expanded=False):
             for col_name, text in HON_ITEMS.items():
                 key = f"{col_name}_{row_idx}"
@@ -295,7 +304,7 @@ with right:
                     horizontal=True,
                 )
 
-        # Likert
+        # Overall ratings (1–5)
         with st.expander("Overall ratings (1–5)", expanded=False):
             for label, col_name in [
                 ("Accuracy", "rating_accuracy"),
@@ -314,28 +323,32 @@ with right:
                     horizontal=True,
                 )
 
-        # THE submit button the warning is complaining about if missing
         submitted = st.form_submit_button("Save ratings for this response")
 
     if submitted:
-        # Write all ratings back
+        # DISCERN
         for i in DISCERN_ITEMS.keys():
             df.loc[row_idx, f"discern_q{i}"] = st.session_state[f"discern_q{i}_{row_idx}"]
 
+        # PEMAT understandability
         for i in PEMAT_UNDER_TEXT.keys():
             val = st.session_state[f"pemat_u_q{i}_{row_idx}"]
             df.loc[row_idx, f"pemat_u_q{i}"] = -1 if val == "N/A" else val
 
+        # PEMAT actionability
         for i in PEMAT_ACT_TEXT.keys():
             val = st.session_state[f"pemat_a_q{i}_{row_idx}"]
             df.loc[row_idx, f"pemat_a_q{i}"] = -1 if val == "N/A" else val
 
+        # JAMA
         for col_name in JAMA_ITEMS.keys():
             df.loc[row_idx, col_name] = st.session_state[f"{col_name}_{row_idx}"]
 
+        # HON
         for col_name in HON_ITEMS.keys():
             df.loc[row_idx, col_name] = st.session_state[f"{col_name}_{row_idx}"]
 
+        # Overall ratings
         for label, col_name in [
             ("Accuracy", "rating_accuracy"),
             ("Comprehensiveness", "rating_comprehensiveness"),
