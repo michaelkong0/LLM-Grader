@@ -201,7 +201,7 @@ with left:
     components.html(
         f"""
         <div style="
-            height: 500px;
+            height: 1000px;
             overflow-y: auto;
             padding: 12px;
             border: 1px solid #ddd;
@@ -211,7 +211,7 @@ with left:
             {html_body}
         </div>
         """,
-        height=520,
+        height=1050,
         scrolling=False,
     )
 
