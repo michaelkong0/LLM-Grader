@@ -191,7 +191,7 @@ left, right = st.columns([1.7, 1.3])
 
 with left:
     st.subheader("Response")
-    st.markdown(f"**Model:** {row.get(model_col, '')}")
+    #st.markdown(f"**Model:** {row.get(model_col, '')}")
     st.markdown("---")
 
     response_md = str(row.get(text_col, ""))
