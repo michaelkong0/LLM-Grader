@@ -170,7 +170,7 @@ n_rows = len(df)
 row_idx = st.selectbox(
     "Select response index",
     options=list(range(n_rows)),
-    format_func=lambda i: f"{i} (Model: {df.iloc[i][model_col]})",
+    format_func=lambda i: f"{i}",
 )
 
 row = df.iloc[row_idx]
@@ -180,7 +180,7 @@ left, right = st.columns([1.7, 1.3])
 
 with left:
     st.subheader(f"Response {row_idx + 1} / {n_rows}")
-    st.markdown(f"**Model:** {row.get(model_col, '')}")
+    #st.markdown(f"**Model:** {row.get(model_col, '')}")
     st.markdown("---")
 
     response_md = str(row.get(text_col, ""))
