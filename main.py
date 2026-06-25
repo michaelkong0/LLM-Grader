@@ -198,20 +198,11 @@ with left:
 
     response_md = str(row.get(text_col, ""))
 
-    st.markdown(
-        f"""
-        <div style="
-            height: 500px;
-            overflow-y: auto;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #fafafa;
-            ">
-            {response_md.replace('\n', '<br>')}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Scrollable text area for long responses
+    st.text_area(
+        "Response text",
+        value=response_md,
+        height=500,          # adjust height as you like
     )
 
 with right:
