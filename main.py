@@ -144,7 +144,6 @@ if "df" not in st.session_state:
 if uploaded is not None:
     df = pd.read_excel(uploaded)
     st.session_state.df = df
-    st.session_state.current_idx = 0  # reset index on new file
 
 if st.session_state.df is None:
     st.info("Upload an Excel file to begin.")
@@ -152,7 +151,7 @@ if st.session_state.df is None:
 
 df = st.session_state.df
 
-# Choose columns: no separate prompt now
+# Choose columns (no prompt)
 cols = list(df.columns)
 text_col = st.selectbox(
     "Text column (Complete response)",
@@ -166,32 +165,22 @@ model_col = st.selectbox(
 )
 
 n_rows = len(df)
-if "current_idx" not in st.session_state:
-    st.session_state.current_idx = 0
 
-# Navigation
-nav_left, nav_center, nav_right = st.columns([1, 2, 1])
-with nav_left:
-    if st.button("⟵ Previous", use_container_width=True, disabled=st.session_state.current_idx <= 0):
-        st.session_state.current_idx = max(0, st.session_state.current_idx - 1)
-with nav_center:
-    st.markdown(
-        f"<div style='text-align:center; font-weight:bold;'>Response {st.session_state.current_idx + 1} / {n_rows}</div>",
-        unsafe_allow_html=True,
-    )
-with nav_right:
-    if st.button("Next ⟶", use_container_width=True, disabled=st.session_state.current_idx >= n_rows - 1):
-        st.session_state.current_idx = min(n_rows - 1, st.session_state.current_idx + 1)
+# Response selector (dropdown)
+row_idx = st.selectbox(
+    "Select response index",
+    options=list(range(n_rows)),
+    format_func=lambda i: f"{i} (Model: {df.iloc[i][model_col]})",
+)
 
-row_idx = st.session_state.current_idx
 row = df.iloc[row_idx]
 
 # Layout: left (scrollable markdown), right (ratings)
 left, right = st.columns([1.7, 1.3])
 
 with left:
-    st.subheader("Response")
-    #st.markdown(f"**Model:** {row.get(model_col, '')}")
+    st.subheader(f"Response {row_idx + 1} / {n_rows}")
+    st.markdown(f"**Model:** {row.get(model_col, '')}")
     st.markdown("---")
 
     response_md = str(row.get(text_col, ""))
